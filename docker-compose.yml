@@ -1,0 +1,28 @@
+services:
+
+  db:
+    image: postgres
+    restart: always
+    shm_size: 128mb
+    
+    environment:
+      POSTGRES_USER: krishna
+      POSTGRES_PASSWORD: sonu1234
+      POSTGRES_DB: payflow
+
+    ports:
+      - 5432:5432
+  
+  redis:
+    image: redis:latest
+    container_name: compose-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_store:/data
+    restart: always
+    command: redis-server --appendonly yes --requirepass "redis1234"
+
+volumes:
+  redis_store:
+
