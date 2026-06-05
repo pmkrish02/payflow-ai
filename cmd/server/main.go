@@ -8,6 +8,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"github.com/pmkrish02/payflow-ai/internal/handler"
 	"github.com/pmkrish02/payflow-ai/internal/middleware"
 	"github.com/pmkrish02/payflow-ai/internal/repository"
@@ -15,26 +16,29 @@ import (
 	"github.com/pmkrish02/payflow-ai/internal/worker"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/genai"
+	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
-
+	godotenv.Load("../../.env")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	pool, err := pgxpool.New(context.Background(), "postgres://krishna:sonu1234@localhost:5432/payflow")
+	pool, err := pgxpool.New(context.Background(), os.Getenv("POSTGRES_URL"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)
 	}
 	defer pool.Close()
 
-	fmt.Println("Connected to DB Succesfully")
+	slog.Info("Connected to database")
 
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "redis1234",
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: os.Getenv("REDIS_PASSWORD"),
 		DB:       0,
 	})
 
@@ -44,11 +48,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("Connected to Redis successfully")
+	slog.Info("Connected to Redis")
+
+	migrationsPath := os.Getenv("MIGRATIONS_PATH")
+	if migrationsPath == "" {
+		migrationsPath = "file://../../migrations"
+	}
 
 	m, err := migrate.New(
-		"file://../../migrations",
-		"postgres://krishna:sonu1234@localhost:5432/payflow?sslmode=disable",
+		migrationsPath,
+		os.Getenv("POSTGRES_URL")+"?sslmode=disable",
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Migration failed to initialize: %v\n", err)
@@ -60,7 +69,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("Migrations ran successfully")
+	slog.Info("Migrations ran successfully")
 
 	auditRepo := &repository.AuditRepository{DB: pool}
 	wp := worker.NewWorkerPool(5, auditRepo)
@@ -89,6 +98,8 @@ func main() {
 	transferHandler := &handler.TransferHandler{TransferService: transferService, WorkerPool: wp}
 
 	r := chi.NewRouter()
+
+	r.Use(middleware.RequestLogger)
 	r.Post("/auth/register", authHandler.RegisterHandler)
 	r.Post("/auth/login", authHandler.Login)
 	r.Get("/auth/me", middleware.AuthMiddleware(authHandler.Me))
@@ -97,12 +108,30 @@ func main() {
 	r.Get("/accounts", middleware.AuthMiddleware(middleware.RateLimitMiddleware(rdb)(accountHandler.GetAccounts)))
 	r.Get("/accounts/{id}", middleware.AuthMiddleware(accountHandler.GetAccountByID))
 	r.Post("/transfers", middleware.AuthMiddleware(middleware.RateLimitMiddleware(rdb)(transferHandler.TransferHandler)))
-	
+
 	r.Post("/agent/query", middleware.AuthMiddleware(agentHandler.QueryHandler))
 	r.Post("/agent/reconcile", middleware.AuthMiddleware(agentHandler.ReconcileHandler))
 	r.Post("/agent/anomaly-scan", middleware.AuthMiddleware(agentHandler.AnomalyHandler))
 
-	fmt.Println("Server starting on port 8080")
-	http.ListenAndServe(":8080", r)
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status": "ok"}`))
+	})
+
+	go func() {
+		slog.Info("Server starting", "port", 8080)
+		if err := http.ListenAndServe(":8080", r); err != nil {
+			slog.Error("Server failed", "error", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+	slog.Info("Shutting down server...")
+	cancel()
+	pool.Close()
+	slog.Info("Server stopped")
 
 }
