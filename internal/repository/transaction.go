@@ -27,6 +27,10 @@ func (r *TransferRepository) Transfer(ctx context.Context, fromAccountID string,
     return nil
     }
     //2) LOCK THE SENDER'S ACCOUNT BEFORE DOING ANYTHING
+    if amount <= 0 {
+    return fmt.Errorf("amount must be greater than zero")
+    }
+    
     var balance int64
     err = tx.QueryRow(ctx,"SELECT balance FROM accounts WHERE id = $1 FOR UPDATE",fromAccountID).Scan(&balance)
     if err!=nil{
@@ -72,8 +76,10 @@ func (r *TransferRepository) Transfer(ctx context.Context, fromAccountID string,
     if err != nil {
         return err
     }
+    if r.Redis != nil {
     r.Redis.Del(ctx, "accounts:"+fromAccountID)
     r.Redis.Del(ctx, "accounts:"+toAccountID)
+}
     return tx.Commit(ctx)
 
 

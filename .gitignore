@@ -1,0 +1,15 @@
+# Binaries
+*.exe
+*.out
+payflow-ai
+
+# Environment
+.env
+*.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

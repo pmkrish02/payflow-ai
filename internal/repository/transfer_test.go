@@ -86,3 +86,38 @@ func TestTransfer_DuplicateIdempotencyKey(t *testing.T) {
 		t.Fatal("second transfer with same key should return nil:", err)
 	}
 }
+
+func TestTransfer_NegativeAmount(t *testing.T) {
+    pool := setupTestDB(t)
+    defer pool.Close()
+
+    repo := &TransferRepository{DB: pool, Redis: nil}
+    err := repo.Transfer(context.Background(),
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab",
+        -100,
+        "test-key-003",
+        "negative test",
+    )
+    if err == nil {
+        t.Fatal("expected error for negative amount but got nil")
+    }
+}
+
+
+func TestTransfer_ZeroAmount(t *testing.T) {
+    pool := setupTestDB(t)
+    defer pool.Close()
+
+    repo := &TransferRepository{DB: pool, Redis: nil}
+    err := repo.Transfer(context.Background(),
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab",
+        0,
+        "test-key-003",
+        "zero test",
+    )
+    if err == nil {
+        t.Fatal("expected zero for zero amount but got nil")
+    }
+}
