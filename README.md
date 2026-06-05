@@ -1,3 +1,4 @@
+[![CI](https://github.com/pmkrish02/payflow-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/pmkrish02/payflow-ai/actions/workflows/ci.yml)
 # PayFlow AI
 
 A production-grade payments backend with AI-powered financial automation. Built in Go with PostgreSQL, Redis, and Gemini AI.
