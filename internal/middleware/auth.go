@@ -21,10 +21,7 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			return []byte("your-security-key"), nil
 		})
-		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+		c
 		claims := token.Claims.(jwt.MapClaims)
 		userID := claims["sub"].(string)
 		ctx := context.WithValue(r.Context(), "userID", userID)
