@@ -83,6 +83,7 @@ payflow-ai/
 - **ACID-compliant transfers** — all six database operations (balance check, debit, credit, two ledger entries, transaction record) happen in one atomic transaction
 - **SELECT FOR UPDATE row locking** — prevents race conditions when two transfers happen from the same account simultaneously
 - **Idempotency keys** — duplicate requests return the original result without double-processing
+- **Account status enforcement** — transfers are rejected if either the sender or recipient account is `frozen` or `closed`
 - **Full audit trail** — every transfer logged asynchronously to `audit_log` table
 
 ### Auth & Security
