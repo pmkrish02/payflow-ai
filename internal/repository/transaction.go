@@ -32,12 +32,25 @@ func (r *TransferRepository) Transfer(ctx context.Context, fromAccountID string,
     }
     
     var balance int64
-    err = tx.QueryRow(ctx,"SELECT balance FROM accounts WHERE id = $1 FOR UPDATE",fromAccountID).Scan(&balance)
+    var fromStatus string
+    err = tx.QueryRow(ctx,"SELECT balance, status FROM accounts WHERE id = $1 FOR UPDATE",fromAccountID).Scan(&balance, &fromStatus)
     if err!=nil{
         return err
     }
+    if fromStatus != "active" {
+        return fmt.Errorf("sender account is %s", fromStatus)
+    }
     if balance < amount {
         return fmt.Errorf("insufficient balance")
+    }
+
+    var toStatus string
+    err = tx.QueryRow(ctx, "SELECT status FROM accounts WHERE id = $1", toAccountID).Scan(&toStatus)
+    if err != nil {
+        return err
+    }
+    if toStatus != "active" {
+        return fmt.Errorf("recipient account is %s", toStatus)
     }
 
     // 3) DEBIT THE MONEY AND UPDATE THE LEDGER ENTRY FOR SENDER but before that we need. txnid to put so we do create the txn id inorder to store it 
