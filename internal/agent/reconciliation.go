@@ -17,7 +17,7 @@ func (r *Reconciliation) Reconcile(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	err = tx.QueryRow(ctx, "SELECT SUM(CASE WHEN entry_type = 'debit' THEN amount ELSE 0 END) as total_debits,SUM(CASE WHEN entry_type = 'credit' THEN amount ELSE 0 END) as total_credits FROM ledger_entries WHERE account_id IN (SELECT id FROM accounts WHERE user_id = $1)", r.UserID).Scan(&totalDebits, &totalCredits)
 	if err != nil {
 		return "", err

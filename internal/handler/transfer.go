@@ -3,6 +3,7 @@ package handler
 import(
 	"net/http"
 	"encoding/json"
+	"github.com/pmkrish02/payflow-ai/internal/middleware"
 	"github.com/pmkrish02/payflow-ai/internal/service"
 	"github.com/pmkrish02/payflow-ai/internal/worker"
 	"fmt"
@@ -21,7 +22,7 @@ type TransferRequest struct{
 }
 func (h * TransferHandler) TransferHandler(w http.ResponseWriter, r *http.Request){
 	fmt.Println("Transfer handler hit")
-	userID := r.Context().Value("userID").(string)
+	userID := r.Context().Value(middleware.UserIDKey).(string)
 	var transfereq TransferRequest
 	err := json.NewDecoder(r.Body).Decode(&transfereq)
 	if err!=nil{
@@ -39,6 +40,6 @@ func (h * TransferHandler) TransferHandler(w http.ResponseWriter, r *http.Reques
     UserID: userID,
 })
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"transfer": "done"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"transfer": "done"})
 
 }

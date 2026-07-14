@@ -17,7 +17,7 @@ func (r *TransferRepository) Transfer(ctx context.Context, fromAccountID string,
     if err != nil {
         return err
     }
-    defer tx.Rollback(ctx)
+    defer func() { _ = tx.Rollback(ctx) }()
  
     // 1) IDEMPOTENCY KEY CHECK
     var existingID string

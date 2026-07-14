@@ -18,7 +18,7 @@ func (a *Anomaly) Anomaly(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	rows, err := tx.Query(ctx, "SELECT * FROM transactions WHERE from_account_id IN (SELECT id FROM accounts WHERE user_id = $1)AND amount > (SELECT AVG(amount) * 3 FROM transactions WHERE from_account_id IN (SELECT id FROM accounts WHERE user_id = $1))", a.UserID)
 	if err != nil {
 		return "", err

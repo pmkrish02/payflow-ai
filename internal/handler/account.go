@@ -3,6 +3,7 @@ package handler
 import(
 	"net/http"
 	"encoding/json"
+	"github.com/pmkrish02/payflow-ai/internal/middleware"
 	"github.com/pmkrish02/payflow-ai/internal/service"
 	"github.com/go-chi/chi/v5"
 )
@@ -17,7 +18,7 @@ type CreateAccountRequest struct {
 }
 
 func (h *AccountHandler) CreateAccountHandler(w http.ResponseWriter, r *http.Request){
-	userID := r.Context().Value("userID").(string)
+	userID := r.Context().Value(middleware.UserIDKey).(string)
 	var CreateAccountReq CreateAccountRequest
 	err := json.NewDecoder(r.Body).Decode(&CreateAccountReq)
 	if err!=nil{
@@ -35,18 +36,18 @@ func (h *AccountHandler) CreateAccountHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Account created successfully"))	
+	_, _ = w.Write([]byte("Account created successfully"))
 
 }
 func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request){
-	userID := r.Context().Value("userID").(string)
+	userID := r.Context().Value(middleware.UserIDKey).(string)
 	accounts,err := h.AccountService.GetAccountsByUserID(r.Context(),userID)
 	if err != nil {
 		http.Error(w, "Could not get the user accounts", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(accounts)
+	_ = json.NewEncoder(w).Encode(accounts)
 
 }
 
@@ -58,6 +59,6 @@ func (h *AccountHandler) GetAccountByID(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(account)
+	_ = json.NewEncoder(w).Encode(account)
 
 }

@@ -61,7 +61,7 @@ SQL: SELECT SUM(amount) as total_spent FROM ledger_entries WHERE entry_type = 'd
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	rows, err := tx.Query(ctx, cleaned)
 
 	if err != nil {

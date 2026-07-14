@@ -4,6 +4,7 @@ import(
 	"net/http"
 	"encoding/json"
 	"github.com/pmkrish02/payflow-ai/internal/agent"
+	"github.com/pmkrish02/payflow-ai/internal/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/genai"
 
@@ -19,7 +20,7 @@ type QueryRequest struct {
 
 func(h *AgentHandler) QueryHandler(w http.ResponseWriter, r *http.Request){
 	var req QueryRequest
-	userID := r.Context().Value("userID").(string)
+	userID := r.Context().Value(middleware.UserIDKey).(string)
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err!=nil{
 		http.Error(w,"Could not decode",http.StatusInternalServerError)
@@ -32,11 +33,11 @@ func(h *AgentHandler) QueryHandler(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"text": result})
+	_ = json.NewEncoder(w).Encode(map[string]string{"text": result})
 
 }
 func(h * AgentHandler) ReconcileHandler(w http.ResponseWriter, r * http.Request){
-	userID := r.Context().Value("userID").(string)
+	userID := r.Context().Value(middleware.UserIDKey).(string)
 	reconcile_agent := agent.Reconciliation{DB: h.DB, UserID: userID}
 	result,err := reconcile_agent.Reconcile(r.Context())
 	if err!=nil{
@@ -44,7 +45,7 @@ func(h * AgentHandler) ReconcileHandler(w http.ResponseWriter, r * http.Request)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"text": result})
+	_ = json.NewEncoder(w).Encode(map[string]string{"text": result})
 
 }
 func (h *AgentHandler) AnomalyHandler(w http.ResponseWriter, r *http.Request) {
@@ -56,5 +57,5 @@ func (h *AgentHandler) AnomalyHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
     w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(map[string]string{"text": result})
+    _ = json.NewEncoder(w).Encode(map[string]string{"text": result})
 }

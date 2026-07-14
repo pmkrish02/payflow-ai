@@ -24,7 +24,7 @@ import (
 )
 
 func main() {
-	godotenv.Load("../../.env")
+	_ = godotenv.Load("../../.env")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	pool, err := pgxpool.New(context.Background(), os.Getenv("POSTGRES_URL"))
@@ -116,7 +116,7 @@ func main() {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok"}`))
+		_, _ = w.Write([]byte(`{"status": "ok"}`))
 	})
 
 	go func() {

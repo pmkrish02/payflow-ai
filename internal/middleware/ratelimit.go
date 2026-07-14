@@ -12,7 +12,7 @@ func RateLimitMiddleware(rdb *redis.Client) func(http.HandlerFunc) http.HandlerF
     return func(next http.HandlerFunc) http.HandlerFunc {
         return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
-            userID := ctx.Value("userID").(string)
+            userID := ctx.Value(UserIDKey).(string)
 			rate, err := rdb.Incr(ctx, "rate:"+userID).Result()
 			if err != nil {
 				http.Error(w, "Internal server error", http.StatusInternalServerError)

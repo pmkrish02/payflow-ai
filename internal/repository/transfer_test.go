@@ -25,11 +25,20 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Fatal("migration init failed:", err)
 	}
-	m.Up()
-	pool.Exec(context.Background(), "DELETE FROM ledger_entries")
-	pool.Exec(context.Background(), "DELETE FROM transactions")
-	pool.Exec(context.Background(), "DELETE FROM accounts")
-	pool.Exec(context.Background(), "DELETE FROM users")
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		t.Fatal("migration up failed:", err)
+	}
+	ctx := context.Background()
+	for _, stmt := range []string{
+		"DELETE FROM ledger_entries",
+		"DELETE FROM transactions",
+		"DELETE FROM accounts",
+		"DELETE FROM users",
+	} {
+		if _, err := pool.Exec(ctx, stmt); err != nil {
+			t.Fatal("could not reset test database:", err)
+		}
+	}
 	return pool
 }
 

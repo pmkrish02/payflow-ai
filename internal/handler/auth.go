@@ -34,7 +34,7 @@ func (h *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("User registered successfully"))	
+	_, _ = w.Write([]byte("User registered successfully"))
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -54,10 +54,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"token": jwttoken})
+	_ = json.NewEncoder(w).Encode(map[string]string{"token": jwttoken})
 
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
-    w.Write([]byte("You are authenticated"))
+    _, _ = w.Write([]byte("You are authenticated"))
 }

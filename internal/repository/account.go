@@ -51,8 +51,9 @@ func (r *AccountRepository) GetAccountsByUserID(ctx context.Context, userID stri
 	if err == nil {
     	// cache hit
     	var accounts []model.Account
-    	json.Unmarshal([]byte(val), &accounts)
-    	return accounts, nil
+    	if err := json.Unmarshal([]byte(val), &accounts); err == nil {
+    		return accounts, nil
+    	}
 	}
 	rows, err := r.DB.Query(context.Background(), "SELECT id, user_id, name, currency, balance, status, created_at, updated_at FROM accounts WHERE user_id = $1",userID)
 	if err!=nil{
@@ -62,7 +63,9 @@ func (r *AccountRepository) GetAccountsByUserID(ctx context.Context, userID stri
 	var accounts []model.Account
 	for rows.Next() {
 		var a model.Account
-		rows.Scan(&a.ID, &a.UserID, &a.Name, &a.Currency, &a.Balance, &a.Status, &a.CreatedAt, &a.UpdatedAt)
+		if err := rows.Scan(&a.ID, &a.UserID, &a.Name, &a.Currency, &a.Balance, &a.Status, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			return nil, err
+		}
 		accounts = append(accounts, a)
 	}
 	jsonData, _ := json.Marshal(accounts)

@@ -6,6 +6,10 @@ import(
 	"context"
 )
 
+type contextKey string
+
+const UserIDKey contextKey = "userID"
+
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         
@@ -27,7 +31,7 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 		claims := token.Claims.(jwt.MapClaims)
 		userID := claims["sub"].(string)
-		ctx := context.WithValue(r.Context(), "userID", userID)
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		r = r.WithContext(ctx)
 		next(w, r)
         
