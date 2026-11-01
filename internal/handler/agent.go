@@ -33,7 +33,7 @@ func(h *AgentHandler) QueryHandler(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"text": result})
+	_ = json.NewEncoder(w).Encode(result)
 
 }
 func(h * AgentHandler) ReconcileHandler(w http.ResponseWriter, r * http.Request){

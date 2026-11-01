@@ -25,6 +25,9 @@ go test ./internal/repository/...
 # Run a single test (or a single table-driven subtest with -run Test/subtest)
 go test ./internal/repository/ -run TestTransfer_DuplicateIdempotencyKey -v
 go test ./internal/repository/ -run "TestTransfer_TableDriven/insufficient_balance" -v
+
+# Lint (must match the version pinned in CI, see note below)
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run ./...
 ```
 
 Tests hit a real Postgres instance directly (no mocking): they connect to
@@ -36,6 +39,16 @@ container (`.github/workflows/ci.yml`).
 
 Server config is read from `.env` via godotenv (`POSTGRES_URL`, `REDIS_ADDR`, `REDIS_PASSWORD`,
 `GEMINI_API_KEY`, optional `MIGRATIONS_PATH`).
+
+## CI (`.github/workflows/ci.yml`)
+
+Three jobs run in sequence: `lint` -> `test` -> `build-docker` (Docker image is built, not pushed).
+golangci-lint is pinned to `v2.12.2` via `golangci-lint-action@v7` — this pairing is load-bearing:
+action v6 only supports golangci-lint v1.x binaries, and v1.x releases built with an older Go
+toolchain refuse to run against this repo's `go 1.25.4` directive ("Go language version used to
+build golangci-lint is lower than the targeted Go version"). If you bump the linter version, bump
+it to another v2.x release and keep the action at v7+, or re-verify the Go-toolchain compatibility
+before changing either one.
 
 ## Architecture
 
@@ -91,7 +104,11 @@ audit logging doesn't block the transfer response path — submit new background
 
 ### Middleware (`internal/middleware/`)
 
-- `AuthMiddleware` (`auth.go`) — JWT verification, wraps protected handlers.
+- `AuthMiddleware` (`auth.go`) — JWT verification, wraps protected handlers. Stashes the caller's
+  user ID in the request context under the typed key `middleware.UserIDKey` (not a raw string) —
+  handlers read it via `r.Context().Value(middleware.UserIDKey).(string)`. Keep using this typed
+  key for any new context values; a raw string key is what golangci-lint's staticcheck (SA1029)
+  flags.
 - `RateLimitMiddleware` (`ratelimit.go`) — Redis-backed, applied per-route in `main.go` (e.g.
   `GET /accounts`, `POST /transfers`).
 - `RequestLogger` (`logger.go`) — applied globally.

@@ -1,12 +1,14 @@
 package handler
 
-import(
-	"net/http"
+import (
 	"encoding/json"
+	"fmt"
+	"net/http"
+
+	"github.com/pmkrish02/payflow-ai/internal/metrics"
 	"github.com/pmkrish02/payflow-ai/internal/middleware"
 	"github.com/pmkrish02/payflow-ai/internal/service"
 	"github.com/pmkrish02/payflow-ai/internal/worker"
-	"fmt"
 )
 type TransferHandler struct {
     TransferService *service.TransferService
@@ -31,10 +33,12 @@ func (h * TransferHandler) TransferHandler(w http.ResponseWriter, r *http.Reques
 	}
 	err = h.TransferService.Transfer(r.Context(),transfereq.FromAccountID,transfereq.ToAccountID,transfereq.Amount,transfereq.IdempotencyKey,transfereq.Description)
 	if err != nil {
-		fmt.Println("Transfer error:", err)
-		http.Error(w, "Could not transfer", http.StatusBadRequest)
-		return
-	}
+	metrics.TransfersTotal.WithLabelValues("failure").Inc()
+	http.Error(w, "Could not transfer", http.StatusBadRequest)
+	return
+}
+	metrics.TransfersTotal.WithLabelValues("success").Inc()
+	
 	h.WorkerPool.Submit(worker.Job{
     Type:   "audit_log",
     UserID: userID,

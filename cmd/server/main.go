@@ -3,6 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -14,13 +20,9 @@ import (
 	"github.com/pmkrish02/payflow-ai/internal/repository"
 	"github.com/pmkrish02/payflow-ai/internal/service"
 	"github.com/pmkrish02/payflow-ai/internal/worker"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/genai"
-	"log/slog"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
@@ -98,8 +100,9 @@ func main() {
 	transferHandler := &handler.TransferHandler{TransferService: transferService, WorkerPool: wp}
 
 	r := chi.NewRouter()
-
 	r.Use(middleware.RequestLogger)
+	r.Use(middleware.Metrics)
+
 	r.Post("/auth/register", authHandler.RegisterHandler)
 	r.Post("/auth/login", authHandler.Login)
 	r.Get("/auth/me", middleware.AuthMiddleware(authHandler.Me))
@@ -112,6 +115,8 @@ func main() {
 	r.Post("/agent/query", middleware.AuthMiddleware(agentHandler.QueryHandler))
 	r.Post("/agent/reconcile", middleware.AuthMiddleware(agentHandler.ReconcileHandler))
 	r.Post("/agent/anomaly-scan", middleware.AuthMiddleware(agentHandler.AnomalyHandler))
+
+	r.Handle("/metrics", promhttp.Handler())
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

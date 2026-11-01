@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pmkrish02/payflow-ai/internal/metrics"
 	"google.golang.org/genai"
-	"strings"
 )
 
 type QueryAgent struct {
@@ -16,7 +19,13 @@ type QueryAgent struct {
 	UserID       string
 }
 
-func (a *QueryAgent) Query(ctx context.Context, question string) (string, error) {
+type QueryResult struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Data    json.RawMessage `json:"data,omitempty"`
+}
+
+func (a *QueryAgent) Query(ctx context.Context, question string) (*QueryResult, error) {
 	config := &genai.GenerateContentConfig{
 		Temperature: genai.Ptr(float32(0.1)),
 		SystemInstruction: genai.NewContentFromText(
@@ -46,9 +55,15 @@ SQL: SELECT SUM(amount) as total_spent FROM ledger_entries WHERE entry_type = 'd
 		),
 	}
 
+	start := time.Now()
 	sqlQuery, err := a.GeminiClient.Models.GenerateContent(ctx, "gemini-3.5-flash", genai.Text(question), config)
+	metrics.LLMRequestDuration.WithLabelValues("query", "sql_generation").Observe(time.Since(start).Seconds())
 	if err != nil {
-		return "", err
+		return nil, err
+	}
+	if sqlQuery.UsageMetadata != nil {
+		metrics.LLMTokensTotal.WithLabelValues("query", "input").Add(float64(sqlQuery.UsageMetadata.PromptTokenCount))
+		metrics.LLMTokensTotal.WithLabelValues("query", "output").Add(float64(sqlQuery.UsageMetadata.CandidatesTokenCount))
 	}
 
 	raw := sqlQuery.Text()
@@ -59,13 +74,13 @@ SQL: SELECT SUM(amount) as total_spent FROM ledger_entries WHERE entry_type = 'd
 
 	tx, err := a.DB.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	rows, err := tx.Query(ctx, cleaned)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -78,7 +93,7 @@ SQL: SELECT SUM(amount) as total_spent FROM ledger_entries WHERE entry_type = 'd
 	for rows.Next() {
 		values, err := rows.Values()
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		row := make(map[string]any)
 		for i, val := range values {
@@ -94,7 +109,7 @@ SQL: SELECT SUM(amount) as total_spent FROM ledger_entries WHERE entry_type = 'd
 
 	jsonBytes, err := json.Marshal(allRows)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	summary, err := a.GeminiClient.Models.GenerateContent(ctx, "gemini-3.5-flash",
 		genai.Text("The user asked: "+question+"\n\nHere is the data:\n"+string(jsonBytes)+"\n\nSummarize this in a friendly, short response. Use dollar amounts (divide cents by 100)."),
@@ -104,9 +119,17 @@ SQL: SELECT SUM(amount) as total_spent FROM ledger_entries WHERE entry_type = 'd
 	)
 	if err != nil {
 		fmt.Println("Summary error:", err)
-		return string(jsonBytes), nil // fallback to raw data
+		return &QueryResult{
+			Success: false,
+			Message: "Could not generate summary; raw data attached.",
+			Data:    jsonBytes,
+		}, nil
 	}
-	return summary.Text(), nil
+	return &QueryResult{
+		Success: true,
+		Message: summary.Text(),
+		Data:    jsonBytes,
+	}, nil
 
 }
 func NewQueryAgent(client *genai.Client, db *pgxpool.Pool, userID string) *QueryAgent {
