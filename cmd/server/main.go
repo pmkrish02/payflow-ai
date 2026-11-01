@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
@@ -99,6 +100,13 @@ func main() {
 	transferService := &service.TransferService{TransferRepo: transferRepo}
 	transferHandler := &handler.TransferHandler{TransferService: transferService, WorkerPool: wp}
 
+	limit := int64(100)
+	if v := os.Getenv("RATE_LIMIT"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			limit = n
+		}
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestLogger)
 	r.Use(middleware.Metrics)
@@ -108,9 +116,9 @@ func main() {
 	r.Get("/auth/me", middleware.AuthMiddleware(authHandler.Me))
 	r.Post("/accounts", middleware.AuthMiddleware(accountHandler.CreateAccountHandler))
 
-	r.Get("/accounts", middleware.AuthMiddleware(middleware.RateLimitMiddleware(rdb)(accountHandler.GetAccounts)))
+	r.Get("/accounts", middleware.AuthMiddleware(middleware.RateLimitMiddleware(rdb, limit)(accountHandler.GetAccounts)))
 	r.Get("/accounts/{id}", middleware.AuthMiddleware(accountHandler.GetAccountByID))
-	r.Post("/transfers", middleware.AuthMiddleware(middleware.RateLimitMiddleware(rdb)(transferHandler.TransferHandler)))
+	r.Post("/transfers", middleware.AuthMiddleware(middleware.RateLimitMiddleware(rdb, limit)(transferHandler.TransferHandler)))
 
 	r.Post("/agent/query", middleware.AuthMiddleware(agentHandler.QueryHandler))
 	r.Post("/agent/reconcile", middleware.AuthMiddleware(agentHandler.ReconcileHandler))

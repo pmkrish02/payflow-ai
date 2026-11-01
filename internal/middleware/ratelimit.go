@@ -7,8 +7,7 @@ import(
 	)
 
 
-func RateLimitMiddleware(rdb *redis.Client) func(http.HandlerFunc) http.HandlerFunc {
-
+func RateLimitMiddleware(rdb *redis.Client, limit int64) func(http.HandlerFunc) http.HandlerFunc {
     return func(next http.HandlerFunc) http.HandlerFunc {
         return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -21,7 +20,7 @@ func RateLimitMiddleware(rdb *redis.Client) func(http.HandlerFunc) http.HandlerF
 			if rate == 1{
 				rdb.Expire(ctx, "rate:"+userID, time.Minute)
 			}
-			if rate > 100{
+			if rate > limit{
 				http.Error(w,"rate Limit exceeded",http.StatusTooManyRequests)
 				return
 			}			
